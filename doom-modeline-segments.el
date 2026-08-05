@@ -165,6 +165,7 @@
 (declare-function evil-state-property "ext:evil-common")
 (declare-function evil-visual-state-p "ext:evil-states" t t)
 (declare-function eyebrowse--get "ext:eyebrowse")
+(declare-function eyebrowse-switch-to-window-config "ext:eyebrowse")
 (declare-function face-remap-remove-relative "face-remap")
 (declare-function fancy-narrow-active-p "ext:fancy-narrow")
 (declare-function flycheck-buffer "ext:flycheck")
@@ -529,7 +530,7 @@ project directory is important."
                                              (2 "Mac-style CR")
                                              (_ "Undecided")))
                         'local-map (let ((map (make-sparse-keymap)))
-                                     (define-key map [mode-line mouse-1] 'mode-line-change-eol)
+                                     (define-key map [mode-line mouse-1] #'mode-line-change-eol)
                                      map))))
            ;; coding system
            (sys (coding-system-plist buffer-file-coding-system))
@@ -1754,9 +1755,29 @@ Requires `eyebrowse-mode' to be enabled or `tab-bar-mode' tabs to be created."
                         (tab-index (tab-bar--current-tab-index))
                         (explicit-name (alist-get 'explicit-name current-tab))
                         (tab-name (alist-get 'name current-tab)))
-                   (if explicit-name tab-name (+ 1 tab-index)))))))
+                   (if explicit-name tab-name (+ 1 tab-index))))))
+         (keymap (let ((map (make-sparse-keymap)))
+                   (cond ((and (bound-and-true-p eyebrowse-mode)
+                               (length> (eyebrowse--get 'window-configs) 1))
+                          (define-key map [mode-line mouse-1] #'eyebrowse-switch-to-window-config)
+                          (define-key map [mode-line mouse-2]
+                            (lambda ()
+                              (interactive)
+                              (describe-function 'eyebrowse-mode))))
+                         ((and (fboundp 'tab-bar-mode)
+                               (length> (frame-parameter nil 'tabs) 1))
+                          (define-key map [mode-line mouse-1] #'tab-bar-switch-to-tab)
+                          (define-key map [mode-line mouse-2]
+                            (lambda ()
+                              (interactive)
+                              (describe-function 'tab-bar-mode)))))
+                   map)))
       (propertize (format " %s " name)
-                  'face (doom-modeline-face 'doom-modeline-workspace-name)))))
+                  'face (doom-modeline-face 'doom-modeline-workspace-name)
+                  'mouse-face 'mode-line-highlight
+                  'help-echo "mouse-1: Switch workspace
+mouse-2: Show help for minor mode"
+                  'local-map keymap))))
 
 
 ;;
