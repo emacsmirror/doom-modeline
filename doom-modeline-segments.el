@@ -686,6 +686,7 @@ Uses `nerd-icons-octicon' to fetch the icon."
   (doom-modeline-icon 'devicon (and doom-modeline-vcs-icon icon)
                       unicode text :face face))
 
+(defvar-local doom-modeline--in-git-worktree-p nil)
 (defun doom-modeline--in-git-worktree-p ()
   "Return non-nil if the current buffer's file is in a git worktree."
   (when-let* ((git-dir (and buffer-file-name
@@ -696,33 +697,40 @@ Uses `nerd-icons-octicon' to fetch the icon."
 
 (defvar-local doom-modeline--vcs nil)
 (defun doom-modeline-update-vcs (&rest _)
-  "Update vcs state in mode-line."
-  (setq doom-modeline--vcs
-        (when (and vc-mode buffer-file-name)
-          (let* ((backend (vc-backend buffer-file-name))
-                 (state (vc-state buffer-file-name backend))
-                 (icon (cond ((memq state '(edited added))
-                              (doom-modeline-vcs-icon "nf-dev-git_compare" "🔃" "*" 'doom-modeline-info))
-                             ((eq state 'needs-merge)
-                              (doom-modeline-vcs-icon "nf-dev-git_merge" "🔀" "?" 'doom-modeline-info))
-                             ((eq state 'needs-update)
-                              (doom-modeline-vcs-icon "nf-dev-git_pull_request" "⬇" "!" 'doom-modeline-warning))
-                             ((memq state '(removed conflict unregistered))
-                              (doom-modeline-icon 'octicon "nf-oct-alert" "⚠" "!" :face 'doom-modeline-urgent))
-                             (t (doom-modeline-vcs-icon "nf-dev-git_branch" "" "@" 'doom-modeline-info))))
-                 (str (or (and vc-display-status
-                               (functionp doom-modeline-vcs-display-function)
-                               (funcall doom-modeline-vcs-display-function))
-                          ""))
-                 (face (or (cdr (assq state doom-modeline-vcs-state-faces-alist))
-                           'doom-modeline-vcs-default))
-                 (text (propertize (if (length> str doom-modeline-vcs-max-length)
-                                       (concat
-                                        (substring str 0 (- doom-modeline-vcs-max-length 3))
-                                        doom-modeline-ellipsis)
-                                     str)
-                                   'face face)))
-            `((icon . ,icon) (text . ,text))))))
+  "Update VCS state in mode-line."
+  ;; Clear states
+  (setq doom-modeline--vcs nil
+        doom-modeline--in-git-worktree-p nil)
+
+  (when (and vc-mode buffer-file-name)
+    (let* ((backend (vc-backend buffer-file-name))
+           (state (vc-state buffer-file-name backend))
+           (icon (cond ((memq state '(edited added))
+                        (doom-modeline-vcs-icon "nf-dev-git_compare" "🔃" "*" 'doom-modeline-info))
+                       ((eq state 'needs-merge)
+                        (doom-modeline-vcs-icon "nf-dev-git_merge" "🔀" "?" 'doom-modeline-info))
+                       ((eq state 'needs-update)
+                        (doom-modeline-vcs-icon "nf-dev-git_pull_request" "⬇" "!" 'doom-modeline-warning))
+                       ((memq state '(removed conflict unregistered))
+                        (doom-modeline-icon 'octicon "nf-oct-alert" "⚠" "!" :face 'doom-modeline-urgent))
+                       (t (doom-modeline-vcs-icon "nf-dev-git_branch" "" "@" 'doom-modeline-info))))
+           (str (or (and vc-display-status
+                         (functionp doom-modeline-vcs-display-function)
+                         (funcall doom-modeline-vcs-display-function))
+                    ""))
+           (face (or (cdr (assq state doom-modeline-vcs-state-faces-alist))
+                     'doom-modeline-vcs-default))
+           (text (propertize (if (length> str doom-modeline-vcs-max-length)
+                                 (concat
+                                  (substring str 0 (- doom-modeline-vcs-max-length 3))
+                                  doom-modeline-ellipsis)
+                               str)
+                             'face face)))
+      ;; Check whether in git worktree
+      (when (eq backend 'Git)
+        (setq doom-modeline--in-git-worktree-p (doom-modeline--in-git-worktree-p)))
+      ;; Set VCS state
+      (setq doom-modeline--vcs `((icon . ,icon) (text . ,text))))))
 (add-hook 'find-file-hook #'doom-modeline-update-vcs)
 (add-hook 'after-save-hook #'doom-modeline-update-vcs)
 (advice-add #'vc-refresh-state :after #'doom-modeline-update-vcs)
@@ -769,8 +777,9 @@ Uses `nerd-icons-octicon' to fetch the icon."
     (let-alist doom-modeline--vcs
       (let ((sep (doom-modeline-spc))
             (vsep (doom-modeline-vspc))
-            (worktree-indicator (when (doom-modeline--in-git-worktree-p)
-                                  (propertize "WT" 'face 'doom-modeline-warning))))
+            (worktree-indicator (when doom-modeline--in-git-worktree-p
+                                  (doom-modeline-vcs-icon "nf-cod-worktree" "⑆" "WT"
+                                                          'doom-modeline-warning))))
         (concat sep
                 (propertize (concat
                              (doom-modeline-display-icon .icon)
