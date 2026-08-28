@@ -664,7 +664,9 @@ mouse-3: Toggle minor modes"
 mouse-1: Display minor modes menu"
              local-map ,minions-mode-line-minor-modes-map)
             ,sep)
-        `((:propertize ("" minor-mode-alist)
+        `((:propertize ("" ,(if (boundp 'mode-line-minor-modes)
+                                mode-line-minor-modes
+                              minor-mode-alist))
            face ,face
            mouse-face ,mouse-face
            help-echo ,help-echo
